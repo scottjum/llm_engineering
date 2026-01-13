@@ -32,7 +32,7 @@ def messages_for(website):
 
 def summarize(url):
     """Fetch and summarize a website using Ollama."""
-    ollama = OpenAI(base_url=OLLAMA_BASE_URL, api_key='ollama')
+    ollama = OpenAI()base_url=OLLAMA_BASE_URL, api_key='ollama'
     website = fetch_website_contents(url)
     response = ollama.chat.completions.create(
         model=MODEL,
