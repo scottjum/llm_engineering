@@ -1,4 +1,4 @@
-`"""
+"""
 Brochure Generator - Creates company brochures from website content using LLMs.
 
 This script scrapes a company's website, identifies relevant pages, and generates
@@ -12,7 +12,8 @@ Usage:
 import argparse
 import json
 import os
-import sys
+from IPython.display import Markdown, display, update_display
+from IPython import get_ipython
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -47,7 +48,8 @@ You should respond in JSON as in this example:
 # System prompt for generating the brochure
 #BROCHURE_SYSTEM_PROMPT = """
 #You are an assistant that analyzes the contents of several relevant pages from a company website
-#and creates a short, humorous, entertaining, witty brochure about the company for prospective customers, investors and recruits.
+#and creates a short, humorous, entertaining, witty brochure about the company for prospective customers, 
+#investors and recruits.
 #Respond in markdown without code blocks.
 #Include details of company culture, customers and careers/jobs if you have the information.
 #"""
@@ -127,26 +129,40 @@ def create_brochure(company_name: str, url: str, model: str) -> str:
     return response.choices[0].message.content
 
 
-def stream_brochure(company_name: str, url: str, model: str) -> str:
-    """Create a brochure with streaming output to the terminal."""
+def stream_brochure(company_name, url, model: str) -> str:
+    """Create a brochure with streaming output.
+
+    - In Jupyter/IPython, live-updates a single Markdown output cell.
+    - In a normal terminal run, prints streaming tokens to stdout.
+    """
     stream = openai_client.chat.completions.create(
         model=model,
         messages=[
             {"role": "system", "content": BROCHURE_SYSTEM_PROMPT},
-            {"role": "user", "content": get_brochure_user_prompt(company_name, url, model=model)},
-        ],
-        stream=True,
+            {"role": "user", "content": get_brochure_user_prompt(company_name, url, model=model)}
+          ],
+        stream=True
     )
     response = ""
-    print("\n" + "=" * 60)
-    print("GENERATED BROCHURE")
-    print("=" * 60 + "\n")
+
+    # `display(..., display_id=True)` returns a handle only in IPython/Jupyter.
+    # When run as a normal script, it returns None, so we fall back to stdout.
+    ip = get_ipython()
+    in_notebook = bool(ip and getattr(ip, "kernel", None))
+    display_handle = display(Markdown(""), display_id=True) if in_notebook else None
+
     for chunk in stream:
-        content = chunk.choices[0].delta.content or ""
+        content = chunk.choices[0].delta.content or ''
         response += content
-        sys.stdout.write(content)
-        sys.stdout.flush()
-    print("\n\n" + "=" * 60)
+        response = response.replace("```", "").replace("markdown", "")
+
+        if display_handle is not None:
+            update_display(Markdown(response), display_id=display_handle.display_id)
+        else:
+            print(content, end="", flush=True)
+
+    if display_handle is None:
+        print()  # newline after streaming completes
     return response
 
 
@@ -194,4 +210,3 @@ Examples:
 
 if __name__ == "__main__":
     main()
-
